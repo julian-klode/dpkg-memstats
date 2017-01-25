@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"text/tabwriter"
+	"unsafe"
 
 	"github.com/dustin/go-humanize"
 )
@@ -46,7 +47,7 @@ func MemUsage(pid string) uint64 {
 			continue
 		}
 
-		fields := reg.Split(string(line), -1)
+		fields := reg.Split(*(*string)(unsafe.Pointer(&line)), -1)
 		i, _ := strconv.ParseUint(fields[1], 10, 64)
 		sum += i * 1024
 	}
@@ -63,11 +64,11 @@ func process(list string) []FilePackageTuple {
 	defer file.Close()
 	reader := bufio.NewReader(file)
 	for {
-		line, err := reader.ReadString('\n')
+		lineBytes, err := reader.ReadBytes('\n')
 		if err != nil {
 			break
 		}
-		line = strings.TrimSpace(line)
+		line := strings.TrimSpace(*(*string)(unsafe.Pointer(&lineBytes)))
 
 		result = append(result, FilePackageTuple{File: line, Package: pkg})
 		// Add support for usrmerge
