@@ -91,6 +91,20 @@ func ReadPackageFileList(list string) []FilePackageTuple {
 
 type PackageMap map[string][]string
 
+// GoPooled spawns #cpu-1 goroutines of f()
+func GoPooled(f func()) {
+	max := runtime.NumCPU()
+	if max > 1 {
+		max--
+	}
+	if max > 256 {
+		max = 256
+	}
+	for i := 0; i < max; i++ {
+		go f()
+	}
+}
+
 // NewFileToPackageMap reads a map file -> [pkg] from dpkg
 func NewFileToPackageMap() PackageMap {
 	match, err := filepath.Glob("/var/lib/dpkg/info/*.list")
@@ -116,28 +130,17 @@ func NewFileToPackageMap() PackageMap {
 		close(done)
 		close(out)
 	}()
-	// Workers
-	max := runtime.NumCPU()
-	if max > 1 {
-		max--
-	}
-	if max > 256 {
-		max = 256
-	}
-	for i := 0; i < max; i++ {
-		go func() {
-			for item := range work {
-				out <- ReadPackageFileList(item)
-			}
-		}()
-	}
-
-	// Inform workers
+	GoPooled(func() {
+		for item := range work {
+			out <- ReadPackageFileList(item)
+		}
+	})
+	// Feed the system
 	for _, list := range match {
 		work <- list
 	}
+	// Wait for the system to finish
 	close(work)
-	// Wait for fileToPkg to be filled.
 	<-done
 
 	return fileToPkg
