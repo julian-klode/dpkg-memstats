@@ -24,9 +24,10 @@ type FilePackageTuple struct {
 	Package string
 }
 
+var reg, _ = regexp.Compile("\\s+")
+
 // MemUsage returns the memory usage of the given process, in bytes
 func MemUsage(pid string) uint64 {
-	reg, _ := regexp.Compile("\\s+")
 	file, err := os.Open(filepath.Join("/proc", pid, "smaps"))
 	if err != nil {
 		fmt.Println("Error in", pid, err)
@@ -132,7 +133,7 @@ type ProcInfo struct {
 }
 
 // ProcInfoSlice is a sortable slice of ProcInfo pointers
-type ProcInfoSlice []*ProcInfo
+type ProcInfoSlice []ProcInfo
 
 func (s ProcInfoSlice) Len() int {
 	return len(s)
@@ -165,7 +166,7 @@ func (s PackageInfoSlice) Less(i, j int) bool {
 }
 
 // NewProcInfo generates a new process info for the given pid
-func (m PackageMap) NewProcInfo(pid string) *ProcInfo {
+func (m PackageMap) NewProcInfo(pid string) ProcInfo {
 	info := ProcInfo{Pss: MemUsage(pid), Pid: pid}
 	info.Exe = filepath.Join("/proc", pid, "exe")
 
@@ -174,7 +175,7 @@ func (m PackageMap) NewProcInfo(pid string) *ProcInfo {
 
 	if strings.Contains(info.Exe, "android-studio") {
 		info.Pkgs = append(info.Pkgs, "android-studio")
-		return &info
+		return info
 	}
 	pkgs := make([]string, 0, 8)
 	for _, pkg := range m[info.Exe] {
@@ -193,7 +194,7 @@ func (m PackageMap) NewProcInfo(pid string) *ProcInfo {
 		info.Pkgs = append(info.Pkgs, "<other>")
 	}
 
-	return &info
+	return info
 }
 
 func main() {
@@ -209,8 +210,8 @@ func main() {
 	/*for file, pkgs := range fileToPkg {
 		fmt.Printf("%s => %v\n", file, pkgs)
 	}*/
-	var procs = make(chan *ProcInfo)
-	packageToInfo := make(map[string]map[string]*ProcInfo)
+	var procs = make(chan ProcInfo)
+	packageToInfo := make(map[string]map[string]ProcInfo)
 	var count int
 	files, _ := ioutil.ReadDir("/proc")
 	for _, f := range files {
@@ -226,19 +227,19 @@ func main() {
 
 	for i := 0; i < count; i++ {
 		res := <-procs
-		if res != nil && res.Pss != 0 {
+		if res.Pss != 0 {
 			set := make(map[string]bool)
 			for _, pkg := range res.Pkgs {
 				// Why can we have the same pid multiple times?
 				if packageToInfo[pkg] == nil {
-					packageToInfo[pkg] = make(map[string]*ProcInfo)
+					packageToInfo[pkg] = make(map[string]ProcInfo)
 
 				}
 				set[pkg] = true
 				packageToInfo[pkg][res.Pid] = res
 			}
 			// Split the Pss over the packages that share the file...
-			res.Pss /= uint64(len(set))
+			//res.Pss /= uint64(len(set))
 		}
 	}
 
