@@ -116,8 +116,8 @@ func NewFileToPackageMap() PackageMap {
 
 	// Process this bastard in parallel
 
-	out := make(chan []FilePackageTuple)
-	work := make(chan string)
+	out := make(chan []FilePackageTuple, 16)
+	work := make(chan string, 16)
 	done := make(chan interface{})
 	// Reader
 	go func() {
@@ -134,7 +134,6 @@ func NewFileToPackageMap() PackageMap {
 		for item := range work {
 			out <- ReadPackageFileList(item)
 		}
-		workersDone <- true
 	})
 	// Feed the system
 	for _, list := range match {
@@ -296,7 +295,6 @@ func main() {
 	fmt.Fprintf(w, "total\t%v\t\n", humanize.Bytes(total))
 	w.Flush()
 
-	print(MemUsage("self"))
 	f, err = os.Create("mem")
 	if err != nil {
 		log.Fatal(err)
