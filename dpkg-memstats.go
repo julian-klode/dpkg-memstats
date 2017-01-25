@@ -5,6 +5,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -220,6 +221,9 @@ func (m PackageMap) NewProcInfo(pid string) ProcInfo {
 
 func main() {
 
+	var verbose = flag.Bool("v", false, "Show per process memory use")
+	flag.Parse()
+
 	f, err := os.Create("cpu")
 	if err != nil {
 		log.Fatal(err)
@@ -287,8 +291,10 @@ func main() {
 		total += pkgInfo.pss
 		fmt.Fprintf(w, "%s\t%v\t\n", pkgInfo.pkg, humanize.Bytes(pkgInfo.pss))
 
-		for _, in := range pkgInfo.procs {
-			fmt.Fprintf(w, "  - [%v] %s\t  %v\t\n", in.Pid, in.Exe, humanize.Bytes(in.Pss))
+		if *verbose {
+			for _, in := range pkgInfo.procs {
+				fmt.Fprintf(w, "  - [%v] %s\t  %v\t\n", in.Pid, in.Exe, humanize.Bytes(in.Pss))
+			}
 		}
 
 	}
