@@ -47,7 +47,6 @@ func MemUsage(pid string) uint64 {
 		}
 
 		fields := reg.Split(string(line), -1)
-
 		i, _ := strconv.ParseUint(fields[1], 10, 64)
 		sum += i * 1024
 	}
@@ -55,6 +54,7 @@ func MemUsage(pid string) uint64 {
 }
 
 func process(list string) []FilePackageTuple {
+	pkg := filepath.Base(list)
 	result := make([]FilePackageTuple, 0, 16)
 	file, err := os.Open(list)
 	if err != nil {
@@ -68,7 +68,6 @@ func process(list string) []FilePackageTuple {
 			break
 		}
 		line = strings.TrimSpace(line)
-		pkg := filepath.Base(list)
 
 		result = append(result, FilePackageTuple{File: line, Package: pkg})
 		// Add support for usrmerge
