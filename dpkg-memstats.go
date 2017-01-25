@@ -287,9 +287,9 @@ func main() {
 		total += pkgInfo.pss
 		fmt.Fprintf(w, "%s\t%v\t\n", pkgInfo.pkg, humanize.Bytes(pkgInfo.pss))
 
-		/*for _, in := range pkgInfo.procs {
-			fmt.Fprintf(w, "\t-[%v]%s\t%v\t\n", in.Pid, in.Exe, humanize.Bytes(in.Pss))
-		}*/
+		for _, in := range pkgInfo.procs {
+			fmt.Fprintf(w, "  - [%v] %s\t  %v\t\n", in.Pid, in.Exe, humanize.Bytes(in.Pss))
+		}
 
 	}
 	fmt.Fprintf(w, "total\t%v\t\n", humanize.Bytes(total))
