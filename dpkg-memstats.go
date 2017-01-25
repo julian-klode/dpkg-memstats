@@ -94,7 +94,7 @@ func NewFileToPackageMap() PackageMap {
 		log.Fatalf("%s", err)
 	}
 
-	fileToPkg := make(map[string][]string, 1024*16)
+	fileToPkg := make(map[string][]string, 1024*128)
 
 	// Process this bastard in parallel
 
