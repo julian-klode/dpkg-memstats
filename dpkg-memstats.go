@@ -1,3 +1,5 @@
+// Package main prints the memory usage of the system grouped
+// by Debian package.
 package main
 
 import (
@@ -61,7 +63,8 @@ func MemUsage(pid string) uint64 {
 	return sum
 }
 
-func process(list string) []FilePackageTuple {
+// ReadPackageFileList returns a slice of tuples (filename, packagename)
+func ReadPackageFileList(list string) []FilePackageTuple {
 	pkg := filepath.Base(list)
 	result := make([]FilePackageTuple, 0, 16)
 	file, err := os.Open(list)
@@ -124,7 +127,7 @@ func NewFileToPackageMap() PackageMap {
 	for i := 0; i < max; i++ {
 		go func() {
 			for item := range work {
-				out <- process(item)
+				out <- ReadPackageFileList(item)
 			}
 		}()
 	}
