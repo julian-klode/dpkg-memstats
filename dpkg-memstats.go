@@ -8,7 +8,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"regexp"
 	"runtime/pprof"
 	"sort"
 	"strconv"
@@ -25,8 +24,6 @@ type FilePackageTuple struct {
 	File    string
 	Package string
 }
-
-var reg, _ = regexp.Compile("\\s+")
 
 // MemUsage returns the memory usage of the given process, in bytes
 func MemUsage(pid string) uint64 {
@@ -46,9 +43,18 @@ func MemUsage(pid string) uint64 {
 		if !bytes.HasPrefix(line, []byte("Pss:")) {
 			continue
 		}
+		// Trim off Pss: on the left side
+		line = line[4:]
+		// Look until the first number
+		for line[0] < '0' || line[0] > '9' {
+			line = line[1:]
+		}
+		// Trim non-digits on the right side
+		for line[len(line)-1] < '0' || line[len(line)-1] > '9' {
+			line = line[:len(line)-1]
+		}
 
-		fields := reg.Split(*(*string)(unsafe.Pointer(&line)), -1)
-		i, _ := strconv.ParseUint(fields[1], 10, 64)
+		i, _ := strconv.ParseUint(*(*string)(unsafe.Pointer(&line)), 10, 64)
 		sum += i * 1024
 	}
 	return sum
