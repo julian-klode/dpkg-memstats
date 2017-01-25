@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -37,15 +38,15 @@ func MemUsage(pid string) uint64 {
 	reader := bufio.NewReader(file)
 	var sum uint64
 	for {
-		line, err := reader.ReadString('\n')
+		line, err := reader.ReadBytes('\n')
 		if err != nil {
 			break
 		}
-		if !strings.HasPrefix(line, "Pss:") {
+		if !bytes.HasPrefix(line, []byte("Pss:")) {
 			continue
 		}
 
-		fields := reg.Split(line, -1)
+		fields := reg.Split(string(line), -1)
 
 		i, _ := strconv.ParseUint(fields[1], 10, 64)
 		sum += i * 1024
@@ -275,5 +276,9 @@ func main() {
 	w.Flush()
 
 	print(MemUsage("self"))
-
+	f, err = os.Create("mem")
+	if err != nil {
+		log.Fatal(err)
+	}
+	pprof.WriteHeapProfile(f)
 }
