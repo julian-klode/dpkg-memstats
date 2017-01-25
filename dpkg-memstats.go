@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"runtime/pprof"
 	"sort"
 	"strconv"
@@ -113,7 +114,14 @@ func NewFileToPackageMap() PackageMap {
 		close(out)
 	}()
 	// Workers
-	for i := 0; i < 4; i++ {
+	max := runtime.NumCPU()
+	if max > 1 {
+		max--
+	}
+	if max > 256 {
+		max = 256
+	}
+	for i := 0; i < max; i++ {
 		go func() {
 			for item := range work {
 				out <- process(item)
