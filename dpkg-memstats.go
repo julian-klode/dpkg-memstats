@@ -16,7 +16,6 @@ import (
 	"strconv"
 	"strings"
 	"text/tabwriter"
-	"unsafe"
 
 	"github.com/dustin/go-humanize"
 )
@@ -50,7 +49,7 @@ func MemUsage(pid string) uint64 {
 			line = line[:len(line)-1]
 		}
 
-		i, _ := strconv.ParseUint(*(*string)(unsafe.Pointer(&line)), 10, 64)
+		i, _ := strconv.ParseUint(string(line), 10, 64)
 		sum += i * 1024
 	}
 	return sum

@@ -2,12 +2,12 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"log"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
-	"unsafe"
 )
 
 // FilePackageMap maps a file path to a list of package names
@@ -35,10 +35,10 @@ func readPackageFileList(list string) packageFileList {
 		if err != nil {
 			break
 		}
-		line := strings.TrimSpace(*(*string)(unsafe.Pointer(&lineBytes)))
+		lineBytes = bytes.TrimSpace(lineBytes)
+		line := string(lineBytes)
 
 		result.Files = append(result.Files, line)
-
 	}
 	return result
 }
