@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"log"
 	"os"
 	"path/filepath"
@@ -31,12 +30,11 @@ func readPackageFileList(list string) packageFileList {
 	defer file.Close()
 	reader := bufio.NewReader(file)
 	for {
-		lineBytes, err := reader.ReadBytes('\n')
+		line, err := reader.ReadString('\n')
 		if err != nil {
 			break
 		}
-		lineBytes = bytes.TrimSpace(lineBytes)
-		line := string(lineBytes)
+		line = strings.TrimSpace(line)
 
 		result.Files = append(result.Files, line)
 	}
