@@ -11,7 +11,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"runtime"
 	"runtime/pprof"
 	"sort"
 	"strconv"
@@ -21,13 +20,6 @@ import (
 
 	"github.com/dustin/go-humanize"
 )
-
-// FilePackageTuple is a tuple consisting of a file name and a package name
-// containing the file.
-type FilePackageTuple struct {
-	File    string
-	Package string
-}
 
 // MemUsage returns the memory usage of the given process, in bytes
 func MemUsage(pid string) uint64 {
@@ -62,86 +54,6 @@ func MemUsage(pid string) uint64 {
 		sum += i * 1024
 	}
 	return sum
-}
-
-// ReadPackageFileList returns a slice of tuples (filename, packagename)
-func ReadPackageFileList(list string) []FilePackageTuple {
-	pkg := filepath.Base(list)
-	result := make([]FilePackageTuple, 0, 16)
-	file, err := os.Open(list)
-	if err != nil {
-
-	}
-	defer file.Close()
-	reader := bufio.NewReader(file)
-	for {
-		lineBytes, err := reader.ReadBytes('\n')
-		if err != nil {
-			break
-		}
-		line := strings.TrimSpace(*(*string)(unsafe.Pointer(&lineBytes)))
-
-		result = append(result, FilePackageTuple{File: line, Package: pkg})
-
-	}
-	return result
-}
-
-type PackageMap map[string][]string
-
-// GoPooled spawns #cpu-1 goroutines of f()
-func GoPooled(f func()) {
-	max := runtime.NumCPU()
-	if max > 1 {
-		max--
-	}
-	if max > 256 {
-		max = 256
-	}
-	for i := 0; i < max; i++ {
-		go f()
-	}
-}
-
-// NewFileToPackageMap reads a map file -> [pkg] from dpkg
-func NewFileToPackageMap() PackageMap {
-	match, err := filepath.Glob("/var/lib/dpkg/info/*.list")
-	if err != nil {
-		log.Fatalf("%s", err)
-	}
-
-	fileToPkg := make(map[string][]string, 1024*256)
-
-	// Process this bastard in parallel
-
-	out := make(chan []FilePackageTuple, 16)
-	work := make(chan string, 16)
-	done := make(chan interface{})
-	// Reader
-	go func() {
-		for _, _ = range match {
-			res := <-out
-			for _, t := range res {
-				fileToPkg[t.File] = append(fileToPkg[t.File], t.Package)
-			}
-		}
-		close(done)
-		close(out)
-	}()
-	GoPooled(func() {
-		for item := range work {
-			out <- ReadPackageFileList(item)
-		}
-	})
-	// Feed the system
-	for _, list := range match {
-		work <- list
-	}
-	// Wait for the system to finish
-	close(work)
-	<-done
-
-	return fileToPkg
 }
 
 type ProcInfo struct {
@@ -186,7 +98,7 @@ func (s PackageInfoSlice) Less(i, j int) bool {
 }
 
 // NewProcInfo generates a new process info for the given pid
-func (m PackageMap) NewProcInfo(pid string) ProcInfo {
+func (m FilePackageMap) NewProcInfo(pid string) ProcInfo {
 	info := ProcInfo{Pss: MemUsage(pid), Pid: pid}
 	info.Exe = filepath.Join("/proc", pid, "exe")
 
