@@ -82,10 +82,7 @@ func ReadPackageFileList(list string) []FilePackageTuple {
 		line := strings.TrimSpace(*(*string)(unsafe.Pointer(&lineBytes)))
 
 		result = append(result, FilePackageTuple{File: line, Package: pkg})
-		// Add support for usrmerge
-		if !strings.HasPrefix(line, "/usr") {
-			result = append(result, FilePackageTuple{File: "/usr" + line, Package: pkg})
-		}
+
 	}
 	return result
 }
@@ -113,7 +110,7 @@ func NewFileToPackageMap() PackageMap {
 		log.Fatalf("%s", err)
 	}
 
-	fileToPkg := make(map[string][]string, 1024*128)
+	fileToPkg := make(map[string][]string, 1024*256)
 
 	// Process this bastard in parallel
 
@@ -208,44 +205,49 @@ func (m PackageMap) NewProcInfo(pid string) ProcInfo {
 		info.Pkgs = append(info.Pkgs, "android-studio")
 		return info
 	}
-	pkgs := make([]string, 0, 8)
+
 	for _, pkg := range m[info.Exe] {
-		pkgs = append(pkgs, pkg)
-	}
-	for _, pkg := range m["/usr"+info.Exe] {
-		pkgs = append(pkgs, pkg)
+		info.Pkgs = append(info.Pkgs, pkg)
 	}
 
-	for _, pkg := range pkgs {
-		if pkg != "" {
+	// A file in /usr may be registered without /usr due to usrmerge, so look
+	// there as well.
+	if len(info.Pkgs) == 0 && strings.HasPrefix(info.Exe, "/usr") {
+		for _, pkg := range m[info.Exe[4:]] {
 			info.Pkgs = append(info.Pkgs, pkg)
 		}
 	}
+
 	if len(info.Pkgs) == 0 {
 		info.Pkgs = append(info.Pkgs, "<other>")
 	}
 
+	// Split the Pss over the packages that share the file
+	info.Pss /= uint64(len(info.Pkgs))
 	return info
 }
 
 func main() {
-
+	var cpuprof = flag.String("cpu", "", "Path to store CPU profile")
+	var memprof = flag.String("mem", "", "Path to store memory profile")
 	var verbose = flag.Bool("v", false, "Show per process memory use")
 	flag.Parse()
 
-	f, err := os.Create("cpu")
-	if err != nil {
-		log.Fatal(err)
+	if cpuprof != nil && *cpuprof != "" {
+		f, err := os.Create(*cpuprof)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
 	}
-	pprof.StartCPUProfile(f)
-	defer pprof.StopCPUProfile()
 
 	packageMap := NewFileToPackageMap()
 	/*for file, pkgs := range fileToPkg {
 		fmt.Printf("%s => %v\n", file, pkgs)
 	}*/
 	var procs = make(chan ProcInfo)
-	packageToInfo := make(map[string]map[string]ProcInfo)
+	packageToInfo := make(map[string][]ProcInfo)
 	var count int
 	files, _ := ioutil.ReadDir("/proc")
 	for _, f := range files {
@@ -262,18 +264,9 @@ func main() {
 	for i := 0; i < count; i++ {
 		res := <-procs
 		if res.Pss != 0 {
-			set := make(map[string]bool)
 			for _, pkg := range res.Pkgs {
-				// Why can we have the same pid multiple times?
-				if packageToInfo[pkg] == nil {
-					packageToInfo[pkg] = make(map[string]ProcInfo)
-
-				}
-				set[pkg] = true
-				packageToInfo[pkg][res.Pid] = res
+				packageToInfo[pkg] = append(packageToInfo[pkg], res)
 			}
-			// Split the Pss over the packages that share the file...
-			//res.Pss /= uint64(len(set))
 		}
 	}
 
@@ -296,6 +289,8 @@ func main() {
 
 	w := tabwriter.NewWriter(os.Stdout, 12, 8, 4, ' ', 0)
 	var total uint64
+	fmt.Fprintf(w, "%s\t%s\t\n", "Package/Proc", "Memory (PSS)")
+	fmt.Fprintf(w, "%s\t%s\t\n", "------------", "------------")
 	for _, pkgInfo := range pkgInfos {
 		total += pkgInfo.pss
 		fmt.Fprintf(w, "%s\t%v\t\n", pkgInfo.pkg, humanize.Bytes(pkgInfo.pss))
@@ -307,12 +302,15 @@ func main() {
 		}
 
 	}
+	fmt.Fprintf(w, "%s\t%s\t\n", "------------", "------------")
 	fmt.Fprintf(w, "total\t%v\t\n", humanize.Bytes(total))
 	w.Flush()
 
-	f, err = os.Create("mem")
-	if err != nil {
-		log.Fatal(err)
+	if memprof != nil && *memprof != "" {
+		f, err := os.Create(*memprof)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.WriteHeapProfile(f)
 	}
-	pprof.WriteHeapProfile(f)
 }
