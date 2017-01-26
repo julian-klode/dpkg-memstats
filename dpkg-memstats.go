@@ -149,6 +149,7 @@ func NewFileToPackageMap() PackageMap {
 
 type ProcInfo struct {
 	Exe  string
+	Cmd  string
 	Pid  string
 	Pss  uint64
 	Pkgs []string
@@ -193,6 +194,14 @@ func (m PackageMap) NewProcInfo(pid string) ProcInfo {
 	info.Exe = filepath.Join("/proc", pid, "exe")
 
 	if info.Exe, _ = os.Readlink(info.Exe); info.Exe != "" {
+	}
+
+	if cmdline, err := ioutil.ReadFile(filepath.Join("/proc", pid, "cmdline")); err == nil {
+		if len(cmdline) > 60 {
+			cmdline = cmdline[:60]
+		}
+		cmdline = bytes.TrimSpace(cmdline)
+		info.Cmd = string(cmdline)
 	}
 
 	if strings.Contains(info.Exe, "android-studio") {
@@ -293,7 +302,7 @@ func main() {
 
 		if *verbose {
 			for _, in := range pkgInfo.procs {
-				fmt.Fprintf(w, "  - [%v] %s\t  %v\t\n", in.Pid, in.Exe, humanize.Bytes(in.Pss))
+				fmt.Fprintf(w, "- [%v] %s\t%v\t\n", in.Pid, in.Cmd, humanize.Bytes(in.Pss))
 			}
 		}
 
